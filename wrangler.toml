@@ -1,4 +1,4 @@
-name = "telegram-secure-agent"
+name = "telegram"
 main = "src/worker.ts"
 compatibility_date = "2026-03-07"
 workers_dev = true
