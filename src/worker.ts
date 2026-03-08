@@ -5,6 +5,28 @@ import { hasSeenUpdate, markSeenUpdate } from "./store.js";
 import { generateReply } from "./ai.js";
 import { sendTelegramText } from "./telegram.js";
 
+const debugState: {
+  bootedAt: string;
+  lastWebhookAt: string | null;
+  lastAuthorizedWebhookAt: string | null;
+  lastUnauthorizedWebhookAt: string | null;
+  lastUpdateId: number | null;
+  lastMessagePreview: string | null;
+  lastOpenAiError: string | null;
+  lastTelegramSendError: string | null;
+  lastSuccessAt: string | null;
+} = {
+  bootedAt: new Date().toISOString(),
+  lastWebhookAt: null,
+  lastAuthorizedWebhookAt: null,
+  lastUnauthorizedWebhookAt: null,
+  lastUpdateId: null,
+  lastMessagePreview: null,
+  lastOpenAiError: null,
+  lastTelegramSendError: null,
+  lastSuccessAt: null
+};
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -33,15 +55,24 @@ export default {
       return jsonResponse({ status: "ok" });
     }
 
+    const debugPath = `/debug/status/${env.TELEGRAM_WEBHOOK_PATH_TOKEN}`;
+    if (env.DEBUG_MODE && request.method === "GET" && url.pathname === debugPath) {
+      return jsonResponse({ status: "ok", debug: debugState });
+    }
+
     const webhookPath = `/webhook/${env.TELEGRAM_WEBHOOK_PATH_TOKEN}`;
     if (request.method !== "POST" || url.pathname !== webhookPath) {
       return new Response("Not found", { status: 404 });
     }
 
+    debugState.lastWebhookAt = new Date().toISOString();
+
     const secretHeader = request.headers.get("x-telegram-bot-api-secret-token");
     if (!verifyTelegramSecret(env.TELEGRAM_WEBHOOK_SECRET, secretHeader)) {
+      debugState.lastUnauthorizedWebhookAt = new Date().toISOString();
       return new Response("Unauthorized", { status: 401 });
     }
+    debugState.lastAuthorizedWebhookAt = new Date().toISOString();
 
     if (tooLarge(request)) {
       return new Response("Payload too large", { status: 413 });
@@ -59,6 +90,9 @@ export default {
       return new Response("OK", { status: 200 });
     }
 
+    debugState.lastUpdateId = payload.updateId;
+    debugState.lastMessagePreview = payload.text.slice(0, 120);
+
     const idempotencyKey = String(payload.updateId);
     if (hasSeenUpdate(idempotencyKey)) {
       return new Response("OK", { status: 200 });
@@ -69,11 +103,21 @@ export default {
     try {
       const reply = await generateReply(payload.text, env);
       await sendTelegramText(payload.chatId, reply, env);
+      debugState.lastOpenAiError = null;
+      debugState.lastTelegramSendError = null;
+      debugState.lastSuccessAt = new Date().toISOString();
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       console.error("failed to process update", {
         updateId: payload.updateId,
-        error: error instanceof Error ? error.message : String(error)
+        error: message
       });
+
+      if (message.toLowerCase().includes("telegram")) {
+        debugState.lastTelegramSendError = message;
+      } else {
+        debugState.lastOpenAiError = message;
+      }
     }
 
     return new Response("OK", { status: 200 });

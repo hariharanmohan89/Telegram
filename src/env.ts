@@ -6,7 +6,8 @@ const envSchema = z.object({
   TELEGRAM_WEBHOOK_PATH_TOKEN: z.string().min(20),
   OPENAI_API_KEY: z.string().min(20),
   OPENAI_MODEL: z.string().min(1).default("gpt-4.1-mini"),
-  MAX_INPUT_CHARS: z.coerce.number().int().positive().max(10000).default(2000)
+  MAX_INPUT_CHARS: z.coerce.number().int().positive().max(10000).default(2000),
+  DEBUG_MODE: z.coerce.boolean().default(false)
 });
 
 export type WorkerEnv = z.infer<typeof envSchema>;
