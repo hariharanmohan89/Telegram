@@ -1,25 +1,21 @@
-type SeenRecord = {
-  seenAt: number;
-};
-
-const seenMessageIds = new Map<string, SeenRecord>();
+const seenUpdateIds = new Map<string, number>();
 const RETAIN_MS = 24 * 60 * 60 * 1000;
 
-export function hasSeenMessage(messageId: string): boolean {
+export function hasSeenUpdate(updateId: string): boolean {
   purgeExpired();
-  return seenMessageIds.has(messageId);
+  return seenUpdateIds.has(updateId);
 }
 
-export function markSeenMessage(messageId: string): void {
+export function markSeenUpdate(updateId: string): void {
   purgeExpired();
-  seenMessageIds.set(messageId, { seenAt: Date.now() });
+  seenUpdateIds.set(updateId, Date.now());
 }
 
 function purgeExpired(): void {
   const cutoff = Date.now() - RETAIN_MS;
-  for (const [id, record] of seenMessageIds.entries()) {
-    if (record.seenAt < cutoff) {
-      seenMessageIds.delete(id);
+  for (const [id, seenAt] of seenUpdateIds.entries()) {
+    if (seenAt < cutoff) {
+      seenUpdateIds.delete(id);
     }
   }
 }

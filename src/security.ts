@@ -1,18 +1,23 @@
-import crypto from "node:crypto";
+export function constantTimeEqual(a: string, b: string): boolean {
+  const aBytes = new TextEncoder().encode(a);
+  const bBytes = new TextEncoder().encode(b);
 
-function safeEqual(a: Buffer, b: Buffer): boolean {
-  if (a.length !== b.length) {
+  if (aBytes.length !== bBytes.length) {
     return false;
   }
-  return crypto.timingSafeEqual(a, b);
+
+  let diff = 0;
+  for (let i = 0; i < aBytes.length; i += 1) {
+    diff |= aBytes[i] ^ bBytes[i];
+  }
+  return diff === 0;
 }
 
-export function verifyTelegramSecret(expectedSecret: string, incomingSecret?: string): boolean {
+export function verifyTelegramSecret(expectedSecret: string, incomingSecret: string | null): boolean {
   if (!incomingSecret) {
     return false;
   }
-
-  return safeEqual(Buffer.from(expectedSecret, "utf8"), Buffer.from(incomingSecret, "utf8"));
+  return constantTimeEqual(expectedSecret, incomingSecret);
 }
 
 export function normalizeUserText(input: string, maxLength: number): string {

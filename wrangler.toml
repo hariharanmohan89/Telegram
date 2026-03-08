@@ -1,0 +1,8 @@
+name = "telegram-secure-agent"
+main = "src/worker.ts"
+compatibility_date = "2026-03-07"
+workers_dev = true
+
+[vars]
+OPENAI_MODEL = "gpt-4.1-mini"
+MAX_INPUT_CHARS = "2000"

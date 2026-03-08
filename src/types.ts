@@ -1,35 +1,35 @@
 import { z } from "zod";
 
-const telegramUpdateSchema = z.object({
-  update_id: z.number().int().nonnegative(),
-  message: z
-    .object({
-      message_id: z.number().int().nonnegative(),
-      chat: z.object({
-        id: z.number()
-      }),
-      text: z.string().min(1)
-    })
-    .optional(),
-  edited_message: z
-    .object({
-      message_id: z.number().int().nonnegative(),
-      chat: z.object({
-        id: z.number()
-      }),
-      text: z.string().min(1)
-    })
-    .optional()
+const telegramMessageSchema = z.object({
+  message_id: z.number().int().nonnegative(),
+  chat: z.object({
+    id: z.number()
+  }),
+  text: z.string().min(1)
 });
 
-export const telegramWebhookSchema = telegramUpdateSchema.refine(
-  (data) => {
-    const msg = data.message ?? data.edited_message;
-    return Boolean(msg?.text);
-  },
-  {
-    message: "No processable text message in update"
-  }
-);
+export const telegramUpdateSchema = z.object({
+  update_id: z.number().int().nonnegative(),
+  message: telegramMessageSchema.optional(),
+  edited_message: telegramMessageSchema.optional()
+});
 
-export type TelegramUpdate = z.infer<typeof telegramUpdateSchema>;
+export function extractTextPayload(input: unknown):
+  | { updateId: number; chatId: number; text: string }
+  | null {
+  const parsed = telegramUpdateSchema.safeParse(input);
+  if (!parsed.success) {
+    return null;
+  }
+
+  const msg = parsed.data.message ?? parsed.data.edited_message;
+  if (!msg?.text) {
+    return null;
+  }
+
+  return {
+    updateId: parsed.data.update_id,
+    chatId: msg.chat.id,
+    text: msg.text
+  };
+}
